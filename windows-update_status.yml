@@ -1,0 +1,76 @@
+# Ansible-Playbook, um sicherzustellen, dass das PSWindowsUpdate-Modul auf Windows-Hosts installiert ist,
+# ausstehende Updates zu überprüfen, den Update-Status zu protokollieren und einen konsolidierten Bericht per E-Mail zu senden.
+
+- hosts: all
+  vars:
+    # Definiert den Pfad zur E-Mail-Berichtsdatei
+    email_report_file: "/tmp/linux_email_report.txt"
+
+  tasks:
+    - name: E-Mail-Berichtsdatei initialisieren
+      copy:
+        # Erstellt oder überschreibt die E-Mail-Berichtsdatei mit leerem Inhalt
+        content: ""
+        dest: "{{ email_report_file }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Sicherstellen, dass das PSWindowsUpdate-Modul installiert ist
+      win_shell: |
+        # Überprüft, ob das PSWindowsUpdate-Modul installiert ist, und installiert es bei Bedarf
+        if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
+          Install-Module -Name PSWindowsUpdate -Force -AllowClobber
+        }
+      register: module_update
+      ignore_errors: true
+
+    - name: PSWindowsUpdate-Modul importieren und nach Updates suchen
+      win_shell: |
+        # Importiert das PSWindowsUpdate-Modul und erhält eine Liste der ausstehenden Updates
+        Import-Module PSWindowsUpdate
+        $Updates = Get-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot
+        $UpdateTitles = $Updates | ForEach-Object { $_.Title }
+        $UpdateTitles -join "`n"
+      register: update_titles
+      ignore_errors: true
+
+    - name: Update-Titel mit richtiger Formatierung protokollieren
+      lineinfile:
+        # Protokolliert den Hostnamen und die Liste der ausstehenden Updates im HTML-Format
+        path: "{{ email_report_file }}"
+        line: |
+          <b>{{ inventory_hostname }}</b> | Ausstehende Updates:
+          {{ update_titles.stdout | regex_replace('`n', '<br>') }}
+      delegate_to: localhost
+
+# Aufgabe zum Lesen des konsolidierten E-Mail-Berichts und Senden per E-Mail
+
+- hosts: localhost
+  gather_facts: no
+  vars:
+    # Definiert den Pfad zur E-Mail-Berichtsdatei
+    email_report_file: "/tmp/linux_email_report.txt"
+
+  tasks:
+    - name: E-Mail-Bericht aus Datei lesen
+      slurp:
+        # Liest den Inhalt der E-Mail-Berichtsdatei
+        src: "{{ email_report_file }}"
+      register: email_content
+
+    - name: E-Mail-Inhalt dekodieren und HTML-E-Mail-Body vorbereiten
+      set_fact:
+        # Dekodiert den Inhalt von Base64 und formatiert ihn als HTML
+        email_body: "<p>Hier ist der Statusbericht für die Server-Updates:</p><p>{{ (email_content.content | b64decode).splitlines() | join('<br>') }}</p>"
+
+    - name: Status-E-Mail senden, nachdem alle Hosts aktualisiert wurden
+      mail:
+        # Sendet die E-Mail mit dem konsolidierten Bericht
+        host: dein-mail-server.com
+        port: 25
+        from: ansible@example.com
+        to: dein-email@example.com
+        subject: "Server Update Status"
+        subtype: html
+        body: "{{ email_body }}"
+        charset: utf8
