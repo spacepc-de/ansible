@@ -1,0 +1,25 @@
+- name: Installiere Apache Web Server
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Aktualisiere den apt-Cache
+      apt:
+        update_cache: yes
+
+    - name: Installiere Apache
+      apt:
+        name: apache2
+        state: present
+
+    - name: Starte den Apache-Dienst
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Öffne die Firewall für HTTP
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
