@@ -1,0 +1,39 @@
+# Install software on Windows using Ansible
+- name: Install software on Windows
+  hosts: all
+  vars:
+    msi_source_path: "/nxlog.msi"  # Source path of the MSI file on the control machine
+    msi_dest_path: "C:\\temp\\nxlog.msi"  # Destination path for the MSI file on the Windows machine
+    nxlog_conf_source_path: "/nxlog.conf"  # Source path of the nxlog configuration file on the control machine
+    nxlog_conf_dest_path: "C:\\Program Files\\nxlog\\conf\\nxlog.conf"  # Destination path for the nxlog configuration file on the Windows machine
+
+  tasks:
+    - name: Ensure C:\temp directory exists
+      win_file:
+        path: C:\temp
+        state: directory  # Ensure the specified directory exists
+
+    - name: Copy MSI file to Windows machine
+      win_copy:
+        src: "{{ msi_source_path }}"
+        dest: "{{ msi_dest_path }}"  # Copy the MSI file from the control machine to the Windows machine
+
+    - name: Install MSI package
+      win_package:
+        path: "{{ msi_dest_path }}"
+        state: present  # Install the MSI package
+
+    - name: Create destination directory for nxlog.conf if it doesn't exist
+      win_file:
+        path: "C:\\Program Files\\nxlog\\conf"
+        state: directory  # Ensure the directory for nxlog.conf exists
+
+    - name: Copy nxlog.conf to Windows machine
+      win_copy:
+        src: "{{ nxlog_conf_source_path }}"
+        dest: "{{ nxlog_conf_dest_path }}"  # Copy the nxlog configuration file to the Windows machine
+
+    - name: Restart nxlog service
+      win_service:
+        name: nxlog
+        state: restarted  # Restart the nxlog service to apply the new configuration
