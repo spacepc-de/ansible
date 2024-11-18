@@ -1,0 +1,32 @@
+- name: Install software on Windows
+  hosts: windows  # Definiere deine Zielgruppe der Windows-Hosts
+  vars:
+    install_type: "msi"  # Setze dies auf "msi" oder "exe", je nach Dateityp
+    msi_source_path: "/path/to/your/software/file.msi"  # Pfad zur MSI-Datei auf deinem Ansible-Server
+    msi_dest_path: "C:\\temp\\file.msi"  # Zielpfad auf der Windows-Maschine
+    exe_source_path: "/path/to/your/software/file.exe"  # Pfad zur EXE-Datei auf deinem Ansible-Server
+    exe_dest_path: "C:\\temp\\file.exe"  # Zielpfad auf der Windows-Maschine
+    exe_install_params: "/silent /install"  # Installationsparameter für die EXE-Datei
+
+  tasks:
+    - name: Copy MSI file to Windows machine
+      win_copy:
+        src: "{{ msi_source_path }}"  # Quelle der MSI-Datei auf dem Ansible-Server
+        dest: "{{ msi_dest_path }}"  # Zielpfad auf der Windows-Maschine
+      when: install_type == "msi"  # Bedingung, nur wenn install_type "msi" ist
+
+    - name: Install MSI package
+      win_package:
+        path: "{{ msi_dest_path }}"  # Pfad zur kopierten MSI-Datei auf der Windows-Maschine
+        state: present  # Stellt sicher, dass das MSI-Paket installiert ist
+      when: install_type == "msi"  # Bedingung, nur wenn install_type "msi" ist
+
+    - name: Copy EXE file to Windows machine
+      win_copy:
+        src: "{{ exe_source_path }}"  # Quelle der EXE-Datei auf dem Ansible-Server
+        dest: "{{ exe_dest_path }}"  # Zielpfad auf der Windows-Maschine
+      when: install_type == "exe"  # Bedingung, nur wenn install_type "exe" ist
+
+    - name: Install EXE package
+      win_command: "{{ exe_dest_path }} {{ exe_install_params }}"  # Führt die EXE-Datei mit Parametern aus
+      when: install_type == "exe"  # Bedingung, nur wenn install_type "exe" ist
